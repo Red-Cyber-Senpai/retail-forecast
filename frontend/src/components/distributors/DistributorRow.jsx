@@ -4,11 +4,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-import SupplierRatingBadge from "./SupplierRatingBadge";
-import SupplierStatusBadge from "./SupplierStatusBadge";
+import RegionBadge from "./RegionBadge";
 
-function SupplierRow({
-  supplier,
+function DistributorRow({
+  distributor,
   onView,
   onEdit,
   onDelete,
@@ -16,31 +15,21 @@ function SupplierRow({
   return (
     <tr className="border-b hover:bg-gray-50">
 
-      <td className="p-4">
-        {supplier.company_name}
+      <td className="p-4 font-medium">
+        {distributor.company_name}
       </td>
 
       <td className="p-4">
-        {supplier.contact_person}
+        {distributor.email || "-"}
       </td>
 
       <td className="p-4">
-        {supplier.email}
+        {distributor.phone || "-"}
       </td>
 
       <td className="p-4">
-        {supplier.city}
-      </td>
-
-      <td className="p-4">
-        <SupplierRatingBadge
-          rating={supplier.rating || 5}
-        />
-      </td>
-
-      <td className="p-4">
-        <SupplierStatusBadge
-          active={supplier.is_active}
+        <RegionBadge
+          region={distributor.region}
         />
       </td>
 
@@ -50,7 +39,7 @@ function SupplierRow({
 
           <button
             onClick={() =>
-              onView(supplier)
+              onView(distributor)
             }
             className="rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700"
           >
@@ -59,7 +48,7 @@ function SupplierRow({
 
           <button
             onClick={() =>
-              onEdit(supplier)
+              onEdit(distributor)
             }
             className="rounded-lg bg-green-600 p-2 text-white hover:bg-green-700"
           >
@@ -68,7 +57,7 @@ function SupplierRow({
 
           <button
             onClick={() =>
-              onDelete(supplier)
+              onDelete(distributor)
             }
             className="rounded-lg bg-red-600 p-2 text-white hover:bg-red-700"
           >
@@ -83,4 +72,4 @@ function SupplierRow({
   );
 }
 
-export default SupplierRow;
+export default DistributorRow;

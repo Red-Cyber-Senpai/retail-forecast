@@ -21,6 +21,7 @@ import Suppliers from "../pages/Suppliers";
 import Reports from "../pages/Reports";
 import Settings from "../pages/Settings";
 import Users from "../pages/Users";
+import Distributors from "../pages/Distributors";
 
 function AppRoutes() {
   return (
@@ -50,7 +51,7 @@ function AppRoutes() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={[ "employee","manager","admin","superadmin",]}>
               <Layout>
                 <Dashboard />
               </Layout>
@@ -61,7 +62,7 @@ function AppRoutes() {
         <Route
           path="/products"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={[ "employee","manager","admin","superadmin",]}>
               <Layout>
                 <Products />
               </Layout>
@@ -72,7 +73,7 @@ function AppRoutes() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={[ "employee","manager","admin","superadmin",]}>
               <Layout>
                 <Inventory />
               </Layout>
@@ -83,7 +84,7 @@ function AppRoutes() {
         <Route
           path="/scanner"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={[ "employee","manager","admin","superadmin",]}>
               <Layout>
                 <Scanner />
               </Layout>
@@ -94,7 +95,7 @@ function AppRoutes() {
         <Route
           path="/forecast"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={[ "employee","manager","admin","superadmin",]}>
               <Layout>
                 <Forecast />
               </Layout>
@@ -105,7 +106,7 @@ function AppRoutes() {
         <Route
           path="/orders"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["manager","admin","superadmin",]}>
               <Layout>
                 <Orders />
               </Layout>
@@ -116,18 +117,27 @@ function AppRoutes() {
         <Route
           path="/suppliers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["manager","admin","superadmin",]}>
               <Layout>
                 <Suppliers />
               </Layout>
             </ProtectedRoute>
           }
         />
-
+        <Route
+          path="/distributors"
+          element={
+            <ProtectedRoute roles={["manager","admin","superadmin",]}>
+              <Layout>
+                <Distributors />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/reports"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["manager","admin","superadmin",]}>
               <Layout>
                 <Reports />
               </Layout>
@@ -138,7 +148,7 @@ function AppRoutes() {
         <Route
           path="/settings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute  roles={["superadmin",]}>
               <Layout>
                 <Settings />
               </Layout>

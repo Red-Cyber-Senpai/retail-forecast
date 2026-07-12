@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 import Loader from "../components/common/Loader";
@@ -6,11 +6,13 @@ import ErrorState from "../components/common/ErrorState";
 import EmptyState from "../components/common/EmptyState";
 
 import UserToolbar from "../components/users/UserToolbar";
+import UserStats from "../components/users/UserStats";
 import UserTable from "../components/users/UserTable";
+import UserProfileModal from "../components/users/UserProfileModal";
 
 import {
   getUsers,
-  changeRole,
+  updateRole,
   activateUser,
   deactivateUser,
 } from "../services/users";
@@ -23,6 +25,18 @@ function Users() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+
+  const [filterRole, setFilterRole] =
+    useState("");
+
+  const [filterStatus, setFilterStatus] =
+    useState("");
+
+  const [selectedUser, setSelectedUser] =
+    useState(null);
+
+  const [showModal, setShowModal] =
+    useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -40,69 +54,109 @@ function Users() {
     } catch (err) {
       console.error(err);
 
-      setError("Unable to load users.");
+      setError(
+        "Unable to load users."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleRoleChange(user, role) {
-    if (user.role === role) return;
-
+  async function handleRole(role) {
     try {
-      await changeRole(user.id, role);
+      await updateRole(
+        selectedUser.id,
+        role
+      );
 
-      toast.success("Role Updated");
+      toast.success(
+        "Role Updated"
+      );
 
-      await loadUsers();
+      setShowModal(false);
+
+      loadUsers();
     } catch (err) {
-      console.error(err);
-
       toast.error(
         err.response?.data?.detail ||
-          "Unable to change role."
+          "Update Failed"
       );
     }
   }
 
-  async function handleToggleStatus(user) {
+  async function handleActivate(user) {
     try {
-      if (user.is_active) {
-        await deactivateUser(user.id);
+      await activateUser(user.id);
 
-        toast.success("User Deactivated");
-      } else {
-        await activateUser(user.id);
+      toast.success(
+        "User Activated"
+      );
 
-        toast.success("User Activated");
-      }
-
-      await loadUsers();
+      loadUsers();
     } catch (err) {
-      console.error(err);
-
       toast.error(
         err.response?.data?.detail ||
-          "Unable to update user."
+          "Operation Failed"
       );
     }
   }
 
-  const filteredUsers = users.filter((user) => {
-    const query = search.toLowerCase();
+  async function handleDeactivate(user) {
+    try {
+      await deactivateUser(user.id);
 
-    return (
-      user.full_name
-        ?.toLowerCase()
-        .includes(query) ||
-      user.email
-        ?.toLowerCase()
-        .includes(query) ||
-      user.role
-        ?.toLowerCase()
-        .includes(query)
-    );
-  });
+      toast.success(
+        "User Deactivated"
+      );
+
+      loadUsers();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail ||
+          "Operation Failed"
+      );
+    }
+  }
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.full_name
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          ) ||
+        user.email
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          );
+
+      const matchesRole =
+        !filterRole ||
+        user.role === filterRole;
+
+      const matchesStatus =
+        !filterStatus ||
+        (filterStatus ===
+          "active" &&
+          user.is_active) ||
+        (filterStatus ===
+          "inactive" &&
+          !user.is_active);
+
+      return (
+        matchesSearch &&
+        matchesRole &&
+        matchesStatus
+      );
+    });
+  }, [
+    users,
+    search,
+    filterRole,
+    filterStatus,
+  ]);
 
   if (loading) return <Loader />;
 
@@ -120,6 +174,21 @@ function Users() {
       <UserToolbar
         search={search}
         setSearch={setSearch}
+        filterRole={filterRole}
+        setFilterRole={
+          setFilterRole
+        }
+        filterStatus={
+          filterStatus
+        }
+        setFilterStatus={
+          setFilterStatus
+        }
+        onRefresh={loadUsers}
+      />
+
+      <UserStats
+        users={filteredUsers}
       />
 
       {filteredUsers.length === 0 ? (
@@ -127,10 +196,27 @@ function Users() {
       ) : (
         <UserTable
           users={filteredUsers}
-          onRoleChange={handleRoleChange}
-          onToggleStatus={handleToggleStatus}
+          onRole={(user) => {
+            setSelectedUser(user);
+            setShowModal(true);
+          }}
+          onActivate={
+            handleActivate
+          }
+          onDeactivate={
+            handleDeactivate
+          }
         />
       )}
+
+      <UserProfileModal
+        open={showModal}
+        user={selectedUser}
+        onClose={() =>
+          setShowModal(false)
+        }
+        onSave={handleRole}
+      />
 
     </div>
   );

@@ -8,6 +8,7 @@ import {
   Truck,
   FileText,
   Settings,
+  PackageCheck,
   CircleUserRound,
   Users,
 } from "lucide-react";
@@ -97,6 +98,16 @@ function Sidebar() {
       ],
     },
     {
+      title: "Distributors",
+      icon: <PackageCheck size={20} />,
+      path: "/distributors",
+      roles: [
+        "manager",
+        "admin",
+        "superadmin",
+      ],
+    },
+    {
       title: "Reports",
       icon: <FileText size={20} />,
       path: "/reports",
@@ -120,7 +131,6 @@ function Sidebar() {
       icon: <Settings size={20} />,
       path: "/settings",
       roles: [
-        "admin",
         "superadmin",
       ],
     },

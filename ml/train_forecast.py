@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import pickle
@@ -15,15 +17,15 @@ from backend.models.product import Product
 from backend.models.sale import Sale
 from backend.models.sale_item import SaleItem
 
-FESTIVAL_CSV = "datasets/raw/festivals/festival_calendar.csv"
-WEATHER_CSV = "datasets/raw/weather/weatherHistory.csv"
-
-MODEL_DIR = Path("models/forecast")
+ROOT_DIR = Path(__file__).resolve().parents[1]
+MODEL_DIR = ROOT_DIR / "models" / "forecast"
 MODEL_PATH = MODEL_DIR / "xgboost.pkl"
 ENCODER_PATH = MODEL_DIR / "label_encoder.pkl"
 FEATURE_COLUMNS_PATH = MODEL_DIR / "feature_columns.json"
 METRICS_PATH = MODEL_DIR / "metrics.json"
 FEATURE_IMPORTANCE_PATH = MODEL_DIR / "feature_importance.csv"
+
+FESTIVAL_CSV = ROOT_DIR / "datasets" / "raw" / "festivals" / "festival_calendar.csv"
 
 VALIDATION_DAYS = 60
 RANDOM_STATE = 42
@@ -35,7 +37,7 @@ def ensure_output_dir() -> None:
 
 def load_festival_month_days() -> set[tuple[int, int]]:
     festival_month_days: set[tuple[int, int]] = set()
-    if not os.path.exists(FESTIVAL_CSV):
+    if not FESTIVAL_CSV.exists():
         return festival_month_days
 
     with open(FESTIVAL_CSV, "r", encoding="utf-8") as f:
@@ -53,56 +55,59 @@ def load_festival_month_days() -> set[tuple[int, int]]:
     return festival_month_days
 
 
-def load_climatological_temp_by_day_of_year() -> dict[int, float]:
-    if not os.path.exists(WEATHER_CSV):
-        return {}
-
-    df = pd.read_csv(WEATHER_CSV, usecols=["Formatted Date", "Temperature (C)"])
-    df["Formatted Date"] = pd.to_datetime(
-        df["Formatted Date"],
-        utc=True,
-        errors="coerce",
-    )
-    df = df.dropna(subset=["Formatted Date"])
-    df["day_of_year"] = df["Formatted Date"].dt.dayofyear
-    return df.groupby("day_of_year")["Temperature (C)"].mean().to_dict()
-
-
 def load_daily_sales_df() -> pd.DataFrame:
     db = SessionLocal()
     try:
         rows = (
             db.query(
-                Sale.created_at,
-                SaleItem.product_id,
-                SaleItem.quantity,
+                Sale.created_at.label("created_at"),
+                SaleItem.product_id.label("product_id"),
+                SaleItem.quantity.label("quantity"),
+                Product.category.label("category"),
+                Product.cost_price.label("cost_price"),
+                Product.selling_price.label("selling_price"),
             )
             .join(SaleItem, SaleItem.sale_id == Sale.id)
+            .join(Product, Product.id == SaleItem.product_id)
             .order_by(Sale.created_at.asc())
             .all()
         )
-
-        product_rows = db.query(Product.id, Product.category).all()
-        products = {p.id: p.category for p in product_rows}
     finally:
         db.close()
 
-    df = pd.DataFrame(rows, columns=["date", "product_id", "quantity"])
+    df = pd.DataFrame(
+        rows,
+        columns=[
+            "created_at",
+            "product_id",
+            "quantity",
+            "category",
+            "cost_price",
+            "selling_price",
+        ],
+    )
     if df.empty:
         return df
 
-    df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
-    df = df.dropna(subset=["date"])
-    df["date"] = df["date"].dt.tz_convert(None).dt.normalize()
+    df["created_at"] = pd.to_datetime(df["created_at"], utc=True, errors="coerce")
+    df = df.dropna(subset=["created_at"])
+    df["date"] = df["created_at"].dt.tz_convert(None).dt.normalize()
     df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").fillna(0.0)
+    df["cost_price"] = pd.to_numeric(df["cost_price"], errors="coerce").fillna(0.0)
+    df["selling_price"] = pd.to_numeric(df["selling_price"], errors="coerce").fillna(0.0)
 
     daily = (
-        df.groupby(["product_id", "date"], as_index=False)["quantity"]
-        .sum()
+        df.groupby(["product_id", "date"], as_index=False)
+        .agg(
+            quantity=("quantity", "sum"),
+            category=("category", "first"),
+            cost_price=("cost_price", "first"),
+            selling_price=("selling_price", "first"),
+        )
         .sort_values(["product_id", "date"])
         .reset_index(drop=True)
     )
-    daily["category"] = daily["product_id"].map(products).fillna("UNCATEGORIZED")
+    daily["category"] = daily["category"].fillna("UNCATEGORIZED")
     return daily
 
 
@@ -110,6 +115,10 @@ def build_feature_columns() -> list[str]:
     return [
         "product_id",
         "category_encoded",
+        "cost_price",
+        "selling_price",
+        "price_gap",
+        "price_ratio",
         "day_of_week",
         "day_of_month",
         "week_of_year",
@@ -119,23 +128,23 @@ def build_feature_columns() -> list[str]:
         "is_month_start",
         "is_month_end",
         "is_festival",
-        "temp_proxy",
-        "temp_proxy_7d_avg",
-        "temperature_trend",
         "lag_1",
         "lag_3",
         "lag_7",
         "lag_14",
+        "lag_28",
         "rolling_mean_3",
         "rolling_mean_7",
         "rolling_mean_14",
+        "rolling_mean_28",
         "rolling_std_7",
         "rolling_std_14",
         "rolling_max_7",
         "rolling_min_7",
-        "growth_rate",
+        "growth_7",
+        "growth_14",
         "pct_change_7",
-        "recent_trend_7",
+        "trend_7",
         "month_sin",
         "month_cos",
         "dow_sin",
@@ -156,8 +165,9 @@ def build_product_features(
     product_df: pd.DataFrame,
     product_id: int,
     category: str,
+    cost_price: float,
+    selling_price: float,
     festival_month_days: set[tuple[int, int]],
-    temp_by_doy: dict[int, float],
 ) -> pd.DataFrame:
     if product_df.empty:
         return pd.DataFrame()
@@ -165,7 +175,6 @@ def build_product_features(
     product_df = product_df.copy()
     product_df["date"] = pd.to_datetime(product_df["date"], errors="coerce")
     product_df = product_df.dropna(subset=["date"])
-
     if product_df.empty:
         return pd.DataFrame()
 
@@ -184,15 +193,13 @@ def build_product_features(
         .reset_index()
     )
 
-    product_df["product_id"] = product_id
+    product_df["product_id"] = int(product_id)
     product_df["category"] = category
+    product_df["cost_price"] = float(cost_price or 0.0)
+    product_df["selling_price"] = float(selling_price or 0.0)
+    product_df["price_gap"] = product_df["selling_price"] - product_df["cost_price"]
+    product_df["price_ratio"] = product_df["selling_price"] / (product_df["cost_price"] + 1.0)
     product_df["quantity"] = pd.to_numeric(product_df["quantity"], errors="coerce").fillna(0.0)
-
-    overall_avg_temp = (
-        float(sum(temp_by_doy.values()) / len(temp_by_doy))
-        if temp_by_doy
-        else 25.0
-    )
 
     product_df["day_of_week"] = product_df["date"].dt.dayofweek
     product_df["day_of_month"] = product_df["date"].dt.day
@@ -202,42 +209,38 @@ def build_product_features(
     product_df["is_weekend"] = (product_df["day_of_week"] >= 5).astype(int)
     product_df["is_month_start"] = product_df["date"].dt.is_month_start.astype(int)
     product_df["is_month_end"] = product_df["date"].dt.is_month_end.astype(int)
-    product_df["day_of_year"] = product_df["date"].dt.dayofyear
-
     product_df["is_festival"] = product_df["date"].apply(
         lambda d: int((d.month, d.day) in festival_month_days)
     )
-    product_df["temp_proxy"] = (
-        product_df["day_of_year"].map(temp_by_doy).fillna(overall_avg_temp)
-    )
-    product_df["temp_proxy_7d_avg"] = product_df["temp_proxy"].rolling(
-        7,
-        min_periods=1,
-    ).mean()
-    product_df["temperature_trend"] = product_df["temp_proxy"].diff().fillna(0.0)
 
     s = product_df["quantity"].astype(float)
+    shifted = s.shift(1)
 
     product_df["lag_1"] = s.shift(1)
     product_df["lag_3"] = s.shift(3)
     product_df["lag_7"] = s.shift(7)
     product_df["lag_14"] = s.shift(14)
+    product_df["lag_28"] = s.shift(28)
 
-    shifted = s.shift(1)
     product_df["rolling_mean_3"] = shifted.rolling(3).mean()
     product_df["rolling_mean_7"] = shifted.rolling(7).mean()
     product_df["rolling_mean_14"] = shifted.rolling(14).mean()
+    product_df["rolling_mean_28"] = shifted.rolling(28).mean()
+
     product_df["rolling_std_7"] = shifted.rolling(7).std()
     product_df["rolling_std_14"] = shifted.rolling(14).std()
     product_df["rolling_max_7"] = shifted.rolling(7).max()
     product_df["rolling_min_7"] = shifted.rolling(7).min()
 
     lag_7_safe = product_df["lag_7"].replace(0, np.nan)
-    product_df["growth_rate"] = (product_df["lag_1"] - product_df["lag_7"]) / lag_7_safe
+    lag_14_safe = product_df["lag_14"].replace(0, np.nan)
+    rolling_mean_7_safe = product_df["rolling_mean_7"].replace(0, np.nan)
+
+    product_df["growth_7"] = (product_df["lag_1"] - product_df["lag_7"]) / lag_7_safe
+    product_df["growth_14"] = (product_df["lag_1"] - product_df["lag_14"]) / lag_14_safe
     product_df["pct_change_7"] = s.pct_change(7)
-    product_df["recent_trend_7"] = (
-        (product_df["rolling_mean_3"] - product_df["rolling_mean_7"])
-        / product_df["rolling_mean_7"].replace(0, np.nan)
+    product_df["trend_7"] = (
+        (product_df["rolling_mean_3"] - product_df["rolling_mean_7"]) / rolling_mean_7_safe
     )
 
     product_df["target"] = s.shift(-1)
@@ -254,35 +257,40 @@ def build_product_features(
         "lag_3",
         "lag_7",
         "lag_14",
+        "lag_28",
         "rolling_mean_3",
         "rolling_mean_7",
         "rolling_mean_14",
-        "rolling_std_7",
-        "rolling_std_14",
+        "rolling_mean_28",
         "target",
     ]
     product_df = product_df.dropna(subset=required).reset_index(drop=True)
-
     return product_df
 
 
 def build_features(
     df: pd.DataFrame,
     festival_month_days: set[tuple[int, int]],
-    temp_by_doy: dict[int, float],
 ) -> pd.DataFrame:
     if df.empty:
         return df
 
     frames = []
     for product_id, group in df.groupby("product_id"):
-        category = str(group["category"].iloc[0]) if not group.empty else "UNCATEGORIZED"
+        if group.empty:
+            continue
+
+        category = str(group["category"].iloc[0] or "UNCATEGORIZED")
+        cost_price = float(group["cost_price"].iloc[0] or 0.0)
+        selling_price = float(group["selling_price"].iloc[0] or 0.0)
+
         feats = build_product_features(
             product_df=group,
             product_id=int(product_id),
             category=category,
+            cost_price=cost_price,
+            selling_price=selling_price,
             festival_month_days=festival_month_days,
-            temp_by_doy=temp_by_doy,
         )
         if not feats.empty:
             frames.append(feats)
@@ -290,11 +298,14 @@ def build_features(
     if not frames:
         return pd.DataFrame()
 
-    combined = pd.concat(frames, ignore_index=True)
-    return combined
+    return pd.concat(frames, ignore_index=True)
 
 
-def train_model(train_df: pd.DataFrame, val_df: pd.DataFrame, feature_columns: list[str]):
+def train_model(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    feature_columns: list[str],
+):
     X_train = train_df[feature_columns]
     y_train = train_df["target"].astype(float)
 
@@ -302,14 +313,14 @@ def train_model(train_df: pd.DataFrame, val_df: pd.DataFrame, feature_columns: l
     y_val = val_df["target"].astype(float)
 
     model = xgb.XGBRegressor(
-        n_estimators=5000,
-        max_depth=6,
+        n_estimators=1200,
+        max_depth=7,
         learning_rate=0.03,
         subsample=0.9,
         colsample_bytree=0.9,
         min_child_weight=1,
         reg_alpha=0.05,
-        reg_lambda=1.5,
+        reg_lambda=1.4,
         gamma=0.0,
         objective="reg:squarederror",
         random_state=RANDOM_STATE,
@@ -323,8 +334,8 @@ def train_model(train_df: pd.DataFrame, val_df: pd.DataFrame, feature_columns: l
         y_train,
         eval_set=[(X_val, y_val)],
         verbose=100,
-        early_stopping_rounds=100,
     )
+
     return model
 
 
@@ -393,13 +404,11 @@ def run():
     ensure_output_dir()
 
     festival_month_days = load_festival_month_days()
-    temp_by_doy = load_climatological_temp_by_day_of_year()
-
     df = load_daily_sales_df()
     if df.empty:
         raise RuntimeError("No sales data found in the database.")
 
-    df = build_features(df, festival_month_days, temp_by_doy)
+    df = build_features(df, festival_month_days)
     if df.empty:
         raise RuntimeError("Not enough data after feature engineering to train the forecasting model.")
 

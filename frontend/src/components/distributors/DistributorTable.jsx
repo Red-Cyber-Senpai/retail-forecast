@@ -1,7 +1,7 @@
-import SupplierRow from "./SupplierRow";
+import DistributorRow from "./DistributorRow";
 
-function SupplierTable({
-  suppliers,
+function DistributorTable({
+  distributors,
   onView,
   onEdit,
   onDelete,
@@ -20,23 +20,15 @@ function SupplierTable({
             </th>
 
             <th className="p-4 text-left">
-              Contact
-            </th>
-
-            <th className="p-4 text-left">
               Email
             </th>
 
             <th className="p-4 text-left">
-              City
+              Phone
             </th>
 
             <th className="p-4 text-left">
-              Rating
-            </th>
-
-            <th className="p-4 text-left">
-              Status
+              Region
             </th>
 
             <th className="p-4 text-left">
@@ -49,11 +41,11 @@ function SupplierTable({
 
         <tbody>
 
-          {suppliers.map((supplier) => (
+          {distributors.map((distributor) => (
 
-            <SupplierRow
-              key={supplier.id}
-              supplier={supplier}
+            <DistributorRow
+              key={distributor.id}
+              distributor={distributor}
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -69,4 +61,4 @@ function SupplierTable({
   );
 }
 
-export default SupplierTable;
+export default DistributorTable;

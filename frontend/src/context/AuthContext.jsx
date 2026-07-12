@@ -11,6 +11,7 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,24 +28,48 @@ export function AuthProvider({ children }) {
 
     try {
       const me = await getCurrentUser();
+
       setUser(me);
     } catch (err) {
+      console.error(err);
+
       localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
+
       setUser(null);
     } finally {
       setLoading(false);
     }
   }
 
-  function login(token, userData) {
-    localStorage.setItem("accessToken", token);
-    setUser(userData);
+  async function login(token) {
+    try {
+      localStorage.setItem(
+        "accessToken",
+        token
+      );
+
+      const me =
+        await getCurrentUser();
+
+      setUser(me);
+    } catch (err) {
+      console.error(err);
+
+      localStorage.removeItem(
+        "accessToken"
+      );
+
+      setUser(null);
+
+      throw err;
+    }
   }
 
   function logout() {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
+    localStorage.removeItem(
+      "accessToken"
+    );
+
     setUser(null);
   }
 

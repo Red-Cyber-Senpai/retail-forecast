@@ -10,12 +10,10 @@ export async function getUser(id) {
   return response.data;
 }
 
-export async function changeRole(id, role) {
+export async function updateRole(id, role) {
   const response = await api.put(
     `/users/${id}/role`,
-    {
-      role,
-    }
+    { role }
   );
 
   return response.data;

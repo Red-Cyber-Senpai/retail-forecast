@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import sys
 from datetime import datetime, timedelta
@@ -11,16 +10,16 @@ import numpy as np
 import pandas as pd
 import pickle
 
-MODEL_PATH = Path("models/forecast/xgboost.pkl")
-ENCODER_PATH = Path("models/forecast/label_encoder.pkl")
-FEATURE_COLUMNS_PATH = Path("models/forecast/feature_columns.json")
-FESTIVAL_CSV = "datasets/raw/festivals/festival_calendar.csv"
-WEATHER_CSV = "datasets/raw/weather/weatherHistory.csv"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+MODEL_DIR = ROOT_DIR / "models" / "forecast"
+MODEL_PATH = MODEL_DIR / "xgboost.pkl"
+ENCODER_PATH = MODEL_DIR / "label_encoder.pkl"
+FEATURE_COLUMNS_PATH = MODEL_DIR / "feature_columns.json"
+FESTIVAL_CSV = ROOT_DIR / "datasets" / "raw" / "festivals" / "festival_calendar.csv"
 
 _MODEL = None
 _ENCODER = None
 _FEATURE_COLUMNS: list[str] | None = None
-_TEMP_BY_DOY: dict[int, float] | None = None
 _FESTIVAL_MONTH_DAYS: set[tuple[int, int]] | None = None
 
 
@@ -31,7 +30,7 @@ def load_festival_month_days() -> set[tuple[int, int]]:
 
     festival_month_days: set[tuple[int, int]] = set()
 
-    if Path(FESTIVAL_CSV).exists():
+    if FESTIVAL_CSV.exists():
         with open(FESTIVAL_CSV, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -46,27 +45,6 @@ def load_festival_month_days() -> set[tuple[int, int]]:
 
     _FESTIVAL_MONTH_DAYS = festival_month_days
     return festival_month_days
-
-
-def load_climatological_temp_by_day_of_year() -> dict[int, float]:
-    global _TEMP_BY_DOY
-    if _TEMP_BY_DOY is not None:
-        return _TEMP_BY_DOY
-
-    if not Path(WEATHER_CSV).exists():
-        _TEMP_BY_DOY = {}
-        return _TEMP_BY_DOY
-
-    df = pd.read_csv(WEATHER_CSV, usecols=["Formatted Date", "Temperature (C)"])
-    df["Formatted Date"] = pd.to_datetime(
-        df["Formatted Date"],
-        utc=True,
-        errors="coerce",
-    )
-    df = df.dropna(subset=["Formatted Date"])
-    df["day_of_year"] = df["Formatted Date"].dt.dayofyear
-    _TEMP_BY_DOY = df.groupby("day_of_year")["Temperature (C)"].mean().to_dict()
-    return _TEMP_BY_DOY
 
 
 def load_model():
@@ -142,7 +120,7 @@ def estimate_confidence(history: list[float], step: int) -> float:
     std_val = float(np.std(recent))
     volatility = std_val / (mean_val + 1.0)
 
-    confidence = 0.94 - (step * 0.015) - min(0.20, volatility * 0.15)
+    confidence = 0.95 - (step * 0.015) - min(0.18, volatility * 0.14)
     confidence = max(0.55, min(0.98, confidence))
     return round(float(confidence), 3)
 
@@ -152,116 +130,102 @@ def build_feature_row(
     category: str,
     forecast_date: datetime.date,
     history: list[float],
-    temp_history: list[float],
+    cost_price: float,
+    selling_price: float,
 ) -> dict[str, Any]:
     feature_columns = load_feature_columns()
-    temp_by_doy = load_climatological_temp_by_day_of_year()
     festival_month_days = load_festival_month_days()
 
     if not history:
-        history = [0.0] * 14
+        history = [0.0] * 28
 
-    if len(history) < 14:
-        history = [history[0]] * (14 - len(history)) + history
-
-    if not temp_history:
-        temp_history = [float(temp_by_doy.get(
-            forecast_date.timetuple().tm_yday,
-            sum(temp_by_doy.values()) / len(temp_by_doy) if temp_by_doy else 25.0,
-        ))] * len(history)
-
-    if len(temp_history) < len(history):
-        temp_history = [temp_history[0]] * (len(history) - len(temp_history)) + temp_history
+    if len(history) < 28:
+        history = [history[0]] * (28 - len(history)) + history
 
     s = pd.Series(history, dtype=float)
-    t = pd.Series(temp_history, dtype=float)
 
     day_of_week = forecast_date.weekday()
     day_of_month = forecast_date.day
-    week_of_year = forecast_date.isocalendar().week
+    week_of_year = int(forecast_date.isocalendar().week)
     month = forecast_date.month
     quarter = (month - 1) // 3 + 1
     is_weekend = int(day_of_week >= 5)
     is_month_start = int(day_of_month == 1)
     next_day = forecast_date + timedelta(days=1)
     is_month_end = int(next_day.month != month)
-    day_of_year = forecast_date.timetuple().tm_yday
     is_festival = int((forecast_date.month, forecast_date.day) in festival_month_days)
 
-    overall_avg_temp = (
-        float(sum(temp_by_doy.values()) / len(temp_by_doy))
-        if temp_by_doy
-        else 25.0
-    )
-    temp_proxy = float(temp_by_doy.get(day_of_year, overall_avg_temp))
-
-    last_temp_values = t.tolist() + [temp_proxy]
-    temp_proxy_7d_avg = float(pd.Series(last_temp_values[-7:], dtype=float).mean())
-    temperature_trend = float(temp_proxy - (t.iloc[-1] if len(t) else temp_proxy))
-
     lag_1 = float(s.iloc[-1])
-    lag_3 = float(s.iloc[-3]) if len(s) >= 3 else lag_1
-    lag_7 = float(s.iloc[-7]) if len(s) >= 7 else lag_1
-    lag_14 = float(s.iloc[-14]) if len(s) >= 14 else lag_1
+    lag_3 = float(s.iloc[-3])
+    lag_7 = float(s.iloc[-7])
+    lag_14 = float(s.iloc[-14])
+    lag_28 = float(s.iloc[-28])
 
-    rolling_mean_3 = float(s.iloc[-3:].mean())
-    rolling_mean_7 = float(s.iloc[-7:].mean())
-    rolling_mean_14 = float(s.iloc[-14:].mean())
+    shifted = s.shift(1)
+    rolling_mean_3 = float(shifted.rolling(3).mean().iloc[-1])
+    rolling_mean_7 = float(shifted.rolling(7).mean().iloc[-1])
+    rolling_mean_14 = float(shifted.rolling(14).mean().iloc[-1])
+    rolling_mean_28 = float(shifted.rolling(28).mean().iloc[-1])
 
-    rolling_std_7 = float(s.iloc[-7:].std(ddof=1)) if len(s) >= 2 else 0.0
-    rolling_std_14 = float(s.iloc[-14:].std(ddof=1)) if len(s) >= 2 else 0.0
+    rolling_std_7 = float(shifted.rolling(7).std().iloc[-1])
+    rolling_std_14 = float(shifted.rolling(14).std().iloc[-1])
+    rolling_max_7 = float(shifted.rolling(7).max().iloc[-1])
+    rolling_min_7 = float(shifted.rolling(7).min().iloc[-1])
 
-    rolling_max_7 = float(s.iloc[-7:].max())
-    rolling_min_7 = float(s.iloc[-7:].min())
-
-    growth_rate = float((lag_1 - lag_7) / lag_7) if lag_7 != 0 else 0.0
+    growth_7 = float((lag_1 - lag_7) / lag_7) if lag_7 != 0 else 0.0
+    growth_14 = float((lag_1 - lag_14) / lag_14) if lag_14 != 0 else 0.0
     pct_change_7 = float(s.pct_change(7).iloc[-1]) if len(s) > 7 else 0.0
-    recent_trend_7 = float(
+    trend_7 = float(
         (rolling_mean_3 - rolling_mean_7) / rolling_mean_7
         if rolling_mean_7 != 0
         else 0.0
     )
 
+    cost_price = float(cost_price or 0.0)
+    selling_price = float(selling_price or 0.0)
+    price_gap = selling_price - cost_price
+    price_ratio = selling_price / (cost_price + 1.0)
+
     row = {
         "product_id": int(product_id),
         "category_encoded": encode_category(category),
+        "cost_price": cost_price,
+        "selling_price": selling_price,
+        "price_gap": price_gap,
+        "price_ratio": price_ratio,
         "day_of_week": day_of_week,
         "day_of_month": day_of_month,
-        "week_of_year": int(week_of_year),
+        "week_of_year": week_of_year,
         "month": month,
         "quarter": quarter,
         "is_weekend": is_weekend,
         "is_month_start": is_month_start,
         "is_month_end": is_month_end,
         "is_festival": is_festival,
-        "temp_proxy": temp_proxy,
-        "temp_proxy_7d_avg": temp_proxy_7d_avg,
-        "temperature_trend": temperature_trend,
         "lag_1": lag_1,
         "lag_3": lag_3,
         "lag_7": lag_7,
         "lag_14": lag_14,
+        "lag_28": lag_28,
         "rolling_mean_3": rolling_mean_3,
         "rolling_mean_7": rolling_mean_7,
         "rolling_mean_14": rolling_mean_14,
+        "rolling_mean_28": rolling_mean_28,
         "rolling_std_7": rolling_std_7,
         "rolling_std_14": rolling_std_14,
         "rolling_max_7": rolling_max_7,
         "rolling_min_7": rolling_min_7,
-        "growth_rate": growth_rate,
+        "growth_7": growth_7,
+        "growth_14": growth_14,
         "pct_change_7": pct_change_7,
-        "recent_trend_7": recent_trend_7,
+        "trend_7": trend_7,
         "month_sin": float(np.sin(2 * np.pi * month / 12.0)),
         "month_cos": float(np.cos(2 * np.pi * month / 12.0)),
         "dow_sin": float(np.sin(2 * np.pi * day_of_week / 7.0)),
         "dow_cos": float(np.cos(2 * np.pi * day_of_week / 7.0)),
     }
 
-    # Keep only columns the model expects.
-    aligned = {}
-    for col in feature_columns:
-        aligned[col] = row.get(col, 0.0)
-
+    aligned = {col: row.get(col, 0.0) for col in feature_columns}
     return aligned
 
 
@@ -281,6 +245,8 @@ def main():
     recent_quantities = [float(x) for x in payload.get("recent_quantities", [])]
     days = int(payload.get("days", 7))
     reference_date = parse_reference_date(payload.get("reference_date"))
+    cost_price = float(payload.get("cost_price", 0.0) or 0.0)
+    selling_price = float(payload.get("selling_price", 0.0) or 0.0)
 
     model = load_model()
     _ = load_encoder()
@@ -288,24 +254,10 @@ def main():
 
     history = list(recent_quantities)
     if not history:
-        history = [0.0] * 14
+        history = [0.0] * 28
 
-    # Reconstruct approximate daily temperature history ending at the reference date.
-    temp_by_doy = load_climatological_temp_by_day_of_year()
-    overall_avg_temp = (
-        float(sum(temp_by_doy.values()) / len(temp_by_doy))
-        if temp_by_doy
-        else 25.0
-    )
-
-    history_dates = [
-        reference_date - timedelta(days=(len(history) - 1 - i))
-        for i in range(len(history))
-    ]
-    temp_history = [
-        float(temp_by_doy.get(d.timetuple().tm_yday, overall_avg_temp))
-        for d in history_dates
-    ]
+    if len(history) < 28:
+        history = [history[0]] * (28 - len(history)) + history
 
     predictions = []
 
@@ -317,7 +269,8 @@ def main():
             category=category,
             forecast_date=forecast_date,
             history=history,
-            temp_history=temp_history,
+            cost_price=cost_price,
+            selling_price=selling_price,
         )
 
         pred = predict_one_step(model, row)
@@ -332,12 +285,6 @@ def main():
         )
 
         history.append(pred)
-        temp_history.append(
-            float(temp_by_doy.get(
-                forecast_date.timetuple().tm_yday,
-                overall_avg_temp,
-            ))
-        )
 
     print(json.dumps(predictions))
 

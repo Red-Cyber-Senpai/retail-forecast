@@ -1,87 +1,92 @@
+import {
+  CheckCircle,
+  Ban,
+  Shield,
+} from "lucide-react";
+
 import RoleBadge from "./RoleBadge";
 import StatusBadge from "./StatusBadge";
 
+import useAuth from "../../hooks/useAuth";
+
 function UserRow({
   user,
-  onRoleChange,
-  onToggleStatus,
+  onRole,
+  onActivate,
+  onDeactivate,
 }) {
+  const { user: currentUser } = useAuth();
+
+  const self =
+    currentUser?.id === user.id;
+
   return (
     <tr className="border-b hover:bg-gray-50">
 
-      <td className="p-4">
-        {user.id}
-      </td>
-
-      <td className="p-4">
+      <td className="p-4 font-medium">
         {user.full_name}
       </td>
 
-      <td className="p-4">
-        {user.email}
-      </td>
+      <td>{user.email}</td>
 
-      <td className="p-4">
-        {user.phone || "-"}
-      </td>
-
-      <td className="p-4">
+      <td>
         <RoleBadge role={user.role} />
       </td>
 
-      <td className="p-4">
-        <StatusBadge active={user.is_active} />
+      <td>
+        <StatusBadge
+          active={user.is_active}
+        />
       </td>
 
-      <td className="p-4">
-
-        <select
-          value={user.role}
-          onChange={(e) =>
-            onRoleChange(
-              user,
-              e.target.value
-            )
-          }
-          className="rounded-lg border p-2"
-        >
-
-          <option value="employee">
-            Employee
-          </option>
-
-          <option value="manager">
-            Manager
-          </option>
-
-          <option value="admin">
-            Admin
-          </option>
-
-          <option value="superadmin">
-            Super Admin
-          </option>
-
-        </select>
-
+      <td>
+        {new Date(
+          user.created_at
+        ).toLocaleDateString()}
       </td>
 
-      <td className="p-4">
+      <td>
 
-        <button
-          onClick={() =>
-            onToggleStatus(user)
-          }
-          className={`rounded-lg px-4 py-2 text-white ${
-            user.is_active
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-green-600 hover:bg-green-700"
-          }`}
-        >
-          {user.is_active
-            ? "Deactivate"
-            : "Activate"}
-        </button>
+        {self ? (
+          <span className="text-xs text-gray-400">
+            Current User
+          </span>
+        ) : (
+          <div className="flex gap-2">
+
+            <button
+              onClick={() =>
+                onRole(user)
+              }
+              className="rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
+            >
+              <Shield size={15} />
+            </button>
+
+            {user.is_active ? (
+              <button
+                onClick={() =>
+                  onDeactivate(user)
+                }
+                className="rounded bg-red-600 p-2 text-white hover:bg-red-700"
+              >
+                <Ban size={15} />
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  onActivate(user)
+                }
+                className="rounded bg-green-600 p-2 text-white hover:bg-green-700"
+              >
+                <CheckCircle
+                  size={15}
+                />
+              </button>
+            )}
+
+          </div>
+        )}
 
       </td>
 

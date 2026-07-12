@@ -1,11 +1,12 @@
 {
-  "validation_mae": 2.519183381512468,
-  "validation_rmse": 3.899268208410043,
-  "validation_mape": 26.962586360498154,
-  "validation_r2": 0.8301939417037778,
-  "baseline_mae": 3.7049849949983327,
-  "baseline_rmse": 5.739387033575426,
-  "baseline_mape": 37.4530737874854,
+  "validation_mae": 2.5479372066799155,
+  "validation_rmse": 4.026552247818282,
+  "validation_mape": 28.19336646010483,
+  "validation_r2": 0.8209142285903933,
+  "baseline_mae": 3.720791732352426,
+  "baseline_rmse": 5.781991358283253,
+  "baseline_mape": 37.77341530495848,
   "beats_baseline": true,
-  "validation_rows": 11996
+  "validation_rows": 11418,
+  "best_iteration": -1
 }

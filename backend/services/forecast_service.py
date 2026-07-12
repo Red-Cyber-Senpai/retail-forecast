@@ -87,7 +87,6 @@ def get_forecast_for_product(
         .reset_index(drop=True)
     )
 
-    # Use as much daily history as is available; 30 days works well if present.
     recent_daily_history = daily["quantity"].tail(max(30, days)).astype(float).tolist()
     reference_date = daily["date"].max().date().isoformat()
 
@@ -103,6 +102,8 @@ def get_forecast_for_product(
         recent_quantities=recent_daily_history,
         days=days,
         reference_date=reference_date,
+        cost_price=float(product.cost_price or 0.0),
+        selling_price=float(product.selling_price or 0.0),
     )
 
     predicted_total = sum(

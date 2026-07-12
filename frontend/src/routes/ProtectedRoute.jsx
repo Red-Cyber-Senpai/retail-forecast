@@ -1,14 +1,11 @@
-import {
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 import Loader from "../components/common/Loader";
 import useAuth from "../hooks/useAuth";
 
 function ProtectedRoute({
   children,
-  roles,
+  roles = [],
 }) {
   const { user, loading } = useAuth();
 
@@ -29,7 +26,7 @@ function ProtectedRoute({
   }
 
   if (
-    roles &&
+    roles.length > 0 &&
     !roles.includes(user.role)
   ) {
     return (

@@ -2,48 +2,41 @@ import UserRow from "./UserRow";
 
 function UserTable({
   users,
-  onRoleChange,
-  onToggleStatus,
+  onRole,
+  onActivate,
+  onDeactivate,
 }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-md">
 
       <table className="w-full">
 
-        <thead className="bg-gray-100">
+        <thead className="bg-gray-50">
 
           <tr>
-
-            <th className="p-4 text-left">
-              ID
-            </th>
 
             <th className="p-4 text-left">
               Name
             </th>
 
-            <th className="p-4 text-left">
+            <th className="text-left">
               Email
             </th>
 
-            <th className="p-4 text-left">
-              Phone
-            </th>
-
-            <th className="p-4 text-left">
+            <th className="text-left">
               Role
             </th>
 
-            <th className="p-4 text-left">
+            <th className="text-left">
               Status
             </th>
 
-            <th className="p-4 text-left">
-              Change Role
+            <th className="text-left">
+              Joined
             </th>
 
-            <th className="p-4 text-left">
-              Action
+            <th className="text-center">
+              Actions
             </th>
 
           </tr>
@@ -53,14 +46,17 @@ function UserTable({
         <tbody>
 
           {users.map((user) => (
-
             <UserRow
               key={user.id}
               user={user}
-              onRoleChange={onRoleChange}
-              onToggleStatus={onToggleStatus}
+              onRole={onRole}
+              onActivate={
+                onActivate
+              }
+              onDeactivate={
+                onDeactivate
+              }
             />
-
           ))}
 
         </tbody>

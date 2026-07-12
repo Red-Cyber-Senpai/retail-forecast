@@ -15,12 +15,16 @@ def forecast_next_days(
     recent_quantities: list[float],
     days: int = 7,
     reference_date: str | None = None,
+    cost_price: float = 0.0,
+    selling_price: float = 0.0,
 ) -> list[dict[str, Any]]:
     payload = {
         "product_id": product_id,
         "category": category,
         "recent_quantities": recent_quantities,
         "days": days,
+        "cost_price": float(cost_price or 0.0),
+        "selling_price": float(selling_price or 0.0),
     }
     if reference_date is not None:
         payload["reference_date"] = reference_date

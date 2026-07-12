@@ -27,22 +27,26 @@ function Navbar() {
   const role = user?.role || "guest";
 
   const roleLabel =
-    role === "admin"
-      ? "Administrator"
-      : role === "manager"
-      ? "Manager"
-      : role === "employee"
-      ? "Employee"
-      : "Guest";
+  role === "superadmin"
+    ? "Super Administrator"
+    : role === "admin"
+    ? "Administrator"
+    : role === "manager"
+    ? "Manager"
+    : role === "employee"
+    ? "Employee"
+    : "Guest";
 
   const roleStyle =
-    role === "admin"
-      ? "bg-red-100 text-red-700"
-      : role === "manager"
-      ? "bg-blue-100 text-blue-700"
-      : role === "employee"
-      ? "bg-gray-100 text-gray-700"
-      : "bg-gray-100 text-gray-700";
+  role === "superadmin"
+    ? "bg-yellow-100 text-yellow-700"
+    : role === "admin"
+    ? "bg-red-100 text-red-700"
+    : role === "manager"
+    ? "bg-blue-100 text-blue-700"
+    : role === "employee"
+    ? "bg-green-100 text-green-700"
+    : "bg-gray-100 text-gray-700";
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
