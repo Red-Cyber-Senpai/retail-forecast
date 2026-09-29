@@ -4,7 +4,7 @@ import io
 import json
 import secrets
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 import torch
 import torch.nn as nn

@@ -24,3 +24,17 @@ class RecognitionConfirmCreate(BaseModel):
     supplier_id: Optional[int] = None
     purchase_price: float = 0
     minimum_order_quantity: int = 1
+
+
+class ShelfDetection(BaseModel):
+    product: str
+    confidence: float
+    quantity: int
+    bbox: List[float]
+
+
+class ShelfScanResult(BaseModel):
+    total_products: int
+    detected_classes: int
+    shelf_fill_percentage: float
+    detections: List[ShelfDetection]

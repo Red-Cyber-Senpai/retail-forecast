@@ -1,0 +1,11 @@
+path: /Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/datasets/processed/retail_product_yolo
+train: images/train
+val: images/val
+
+names:
+  0: aqua
+  1: chitato
+  2: indomie
+  3: pepsodent
+  4: shampoo
+  5: tissue

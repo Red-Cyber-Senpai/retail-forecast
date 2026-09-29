@@ -6,9 +6,9 @@ import {
   TrendingUp,
   ShoppingCart,
   Truck,
+  PackageCheck,
   FileText,
   Settings,
-  PackageCheck,
   CircleUserRound,
   Users,
 } from "lucide-react";
@@ -131,6 +131,7 @@ function Sidebar() {
       icon: <Settings size={20} />,
       path: "/settings",
       roles: [
+        "admin",
         "superadmin",
       ],
     },
@@ -159,8 +160,12 @@ function Sidebar() {
       <div className="border-b border-slate-700 p-6">
 
         <h1 className="text-2xl font-bold">
-          SelfStack
+          SelfStack ERP
         </h1>
+
+        <p className="mt-1 text-xs text-slate-400">
+          AI Retail Supply Chain
+        </p>
 
         <div className="mt-4 flex items-center gap-3">
 
@@ -171,8 +176,7 @@ function Sidebar() {
 
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ring-1 ${
-              roleStyles[role] ||
-              roleStyles.guest
+              roleStyles[role] || roleStyles.guest
             }`}
           >
             {role}

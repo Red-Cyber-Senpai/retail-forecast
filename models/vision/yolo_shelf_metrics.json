@@ -1,0 +1,18 @@
+{
+  "trained_at": "2026-07-12T23:05:12.972599Z",
+  "source_dataset": "/Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/datasets/raw/grocery_images/retail_product_dataset/dataset",
+  "processed_dataset": "/Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/datasets/processed/retail_product_yolo",
+  "model_path": "/Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/models/vision/yolo_shelf.pt",
+  "class_names_path": "/Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/models/vision/yolo_shelf_class_names.json",
+  "data_yaml": "/Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/datasets/processed/retail_product_yolo/data.yaml",
+  "epochs": 80,
+  "imgsz": 640,
+  "batch": 8,
+  "patience": 15,
+  "metrics": {
+    "map50": 0.8129440734908687,
+    "map50_95": 0.5316059254929151,
+    "precision": 0.875639412447752,
+    "recall": 0.8364948658431676
+  }
+}
