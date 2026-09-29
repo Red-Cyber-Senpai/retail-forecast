@@ -53,7 +53,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Datasets (Large files & raw dumps)
-datasets/raw/
+datasets/raw/*
+!datasets/raw/festivals/
+!datasets/raw/retail_sales/
+!datasets/raw/retail_sales/retail_sales_dataset.csv
+!datasets/raw/weather/
+!datasets/raw/weather/weatherHistory.csv
 *.parquet
 *.zip
 *.tar*
