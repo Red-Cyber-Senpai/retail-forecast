@@ -49,7 +49,6 @@ Large external raw dumps are excluded from Git to comply with GitHub's 100 MB pe
 | :--- | :--- | :--- | :--- |
 | **Walmart M5 Forecasting** | ~475 MB | Daily item unit sales at store-department level | [Kaggle M5 Forecasting - Accuracy](https://www.kaggle.com/c/m5-forecasting-accuracy) |
 | **OpenFoodFacts Dump** | ~1.0 GB | Global open database of food products | [Open Food Facts Database](https://world.openfoodfacts.org/data) |
-| **Amazon Berkeley Objects (ABO)** | ~2.7 GB | High-resolution e-commerce product imagery | [Amazon ABO Dataset](https://amazon-berkeley-objects.s3.amazonaws.com/index.html) |
 
 ---
 
