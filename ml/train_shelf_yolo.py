@@ -11,13 +11,16 @@ from typing import Iterable
 import torch
 from ultralytics import YOLO
 
+import os
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
-SOURCE_DATASET = ROOT_DIR / "datasets" / "raw" / "grocery_images" / "retail_product_dataset" / "dataset"
-SOURCE_IMAGES_TRAIN = SOURCE_DATASET / "images" / "train"
-SOURCE_IMAGES_VAL = SOURCE_DATASET / "images" / "test"
-SOURCE_ANN_TRAIN = SOURCE_DATASET / "annotations" / "train"
-SOURCE_ANN_VAL = SOURCE_DATASET / "annotations" / "test"
+# Optional raw XML source directory for re-conversion; defaults to None
+SOURCE_DATASET = Path(os.environ["RAW_YOLO_SOURCE"]) if "RAW_YOLO_SOURCE" in os.environ else None
+SOURCE_IMAGES_TRAIN = SOURCE_DATASET / "images" / "train" if SOURCE_DATASET else None
+SOURCE_IMAGES_VAL = SOURCE_DATASET / "images" / "test" if SOURCE_DATASET else None
+SOURCE_ANN_TRAIN = SOURCE_DATASET / "annotations" / "train" if SOURCE_DATASET else None
+SOURCE_ANN_VAL = SOURCE_DATASET / "annotations" / "test" if SOURCE_DATASET else None
 
 PROCESSED_ROOT = ROOT_DIR / "datasets" / "processed" / "retail_product_yolo"
 PROCESSED_IMAGES_TRAIN = PROCESSED_ROOT / "images" / "train"
@@ -288,23 +291,23 @@ def train_yolo() -> None:
             "note": f"Validation metrics unavailable: {exc}",
         }
 
+    payload = {
+        "trained_at": datetime.utcnow().isoformat() + "Z",
+        "processed_dataset": str(PROCESSED_ROOT),
+        "model_path": str(YOLO_MODEL_OUT),
+        "class_names_path": str(CLASS_NAMES_OUT),
+        "data_yaml": str(DATA_YAML_PATH),
+        "epochs": EPOCHS,
+        "imgsz": IMG_SIZE,
+        "batch": BATCH,
+        "patience": PATIENCE,
+        "metrics": metrics_dict,
+    }
+    if SOURCE_DATASET:
+        payload["source_dataset"] = str(SOURCE_DATASET)
+
     METRICS_OUT.write_text(
-        json.dumps(
-            {
-                "trained_at": datetime.utcnow().isoformat() + "Z",
-                "source_dataset": str(SOURCE_DATASET),
-                "processed_dataset": str(PROCESSED_ROOT),
-                "model_path": str(YOLO_MODEL_OUT),
-                "class_names_path": str(CLASS_NAMES_OUT),
-                "data_yaml": str(DATA_YAML_PATH),
-                "epochs": EPOCHS,
-                "imgsz": IMG_SIZE,
-                "batch": BATCH,
-                "patience": PATIENCE,
-                "metrics": metrics_dict,
-            },
-            indent=2,
-        ),
+        json.dumps(payload, indent=2),
         encoding="utf-8",
     )
 
@@ -313,50 +316,58 @@ def train_yolo() -> None:
 
 
 def main() -> None:
-    if not SOURCE_DATASET.exists():
-        raise RuntimeError(f"Source dataset not found: {SOURCE_DATASET}")
-
     ensure_dirs()
-    clear_processed_dataset()
 
-    class_names = collect_class_names([SOURCE_ANN_TRAIN, SOURCE_ANN_VAL])
-    class_to_idx = {name: idx for idx, name in enumerate(class_names)}
+    if SOURCE_DATASET and SOURCE_DATASET.exists():
+        print(f"Re-converting raw source dataset from {SOURCE_DATASET}...")
+        clear_processed_dataset()
 
-    CLASS_NAMES_OUT.write_text(json.dumps(class_names, indent=2), encoding="utf-8")
-    write_data_yaml(class_names)
+        class_names = collect_class_names([SOURCE_ANN_TRAIN, SOURCE_ANN_VAL])
+        class_to_idx = {name: idx for idx, name in enumerate(class_names)}
 
-    print(f"Using classes ({len(class_names)}): {class_names}")
-    print(f"Wrote class list to {CLASS_NAMES_OUT}")
-    print(f"Wrote YOLO dataset YAML to {DATA_YAML_PATH}")
+        CLASS_NAMES_OUT.write_text(json.dumps(class_names, indent=2), encoding="utf-8")
+        write_data_yaml(class_names)
 
-    train_stats = convert_split(
-        split_name="train",
-        xml_dir=SOURCE_ANN_TRAIN,
-        images_dir=SOURCE_IMAGES_TRAIN,
-        output_images_dir=PROCESSED_IMAGES_TRAIN,
-        output_labels_dir=PROCESSED_LABELS_TRAIN,
-        class_to_idx=class_to_idx,
-    )
+        print(f"Using classes ({len(class_names)}): {class_names}")
+        print(f"Wrote class list to {CLASS_NAMES_OUT}")
+        print(f"Wrote YOLO dataset YAML to {DATA_YAML_PATH}")
 
-    val_stats = convert_split(
-        split_name="val",
-        xml_dir=SOURCE_ANN_VAL,
-        images_dir=SOURCE_IMAGES_VAL,
-        output_images_dir=PROCESSED_IMAGES_VAL,
-        output_labels_dir=PROCESSED_LABELS_VAL,
-        class_to_idx=class_to_idx,
-    )
-
-    print("Conversion complete.")
-    print(
-        json.dumps(
-            {
-                "train": train_stats,
-                "val": val_stats,
-            },
-            indent=2,
+        train_stats = convert_split(
+            split_name="train",
+            xml_dir=SOURCE_ANN_TRAIN,
+            images_dir=SOURCE_IMAGES_TRAIN,
+            output_images_dir=PROCESSED_IMAGES_TRAIN,
+            output_labels_dir=PROCESSED_LABELS_TRAIN,
+            class_to_idx=class_to_idx,
         )
-    )
+
+        val_stats = convert_split(
+            split_name="val",
+            xml_dir=SOURCE_ANN_VAL,
+            images_dir=SOURCE_IMAGES_VAL,
+            output_images_dir=PROCESSED_IMAGES_VAL,
+            output_labels_dir=PROCESSED_LABELS_VAL,
+            class_to_idx=class_to_idx,
+        )
+
+        print("Conversion complete.")
+        print(
+            json.dumps(
+                {
+                    "train": train_stats,
+                    "val": val_stats,
+                },
+                indent=2,
+            )
+        )
+    elif DATA_YAML_PATH.exists():
+        print(f"Using existing processed dataset at {PROCESSED_ROOT}")
+        print(f"Data YAML: {DATA_YAML_PATH}")
+    else:
+        raise RuntimeError(
+            f"Dataset configuration not found at {DATA_YAML_PATH}. "
+            "Please ensure datasets/processed/retail_product_yolo is present."
+        )
 
     train_yolo()
 

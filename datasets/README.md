@@ -43,15 +43,13 @@ datasets/
 * **External Regressors**: `festival_calendar.csv` and `weatherHistory.csv` (used by `scripts/generate_synthetic_sales.py` and the XGBoost demand forecasting models).
 
 ### 🌐 Large Raw Datasets (Hosted Externally)
-Raw archive dumps (~36 GB total) are excluded from Git to comply with GitHub's 100 MB per-file limit and repository size best practices:
+Large external raw dumps are excluded from Git to comply with GitHub's 100 MB per-file limit and repository size best practices:
 
 | Dataset | Raw Size | Description | Source / Reference |
 | :--- | :--- | :--- | :--- |
 | **Walmart M5 Forecasting** | ~475 MB | Daily item unit sales at store-department level | [Kaggle M5 Forecasting - Accuracy](https://www.kaggle.com/c/m5-forecasting-accuracy) |
 | **OpenFoodFacts Dump** | ~1.0 GB | Global open database of food products | [Open Food Facts Database](https://world.openfoodfacts.org/data) |
 | **Amazon Berkeley Objects (ABO)** | ~2.7 GB | High-resolution e-commerce product imagery | [Amazon ABO Dataset](https://amazon-berkeley-objects.s3.amazonaws.com/index.html) |
-| **Freiburg Grocery Dataset** | ~510 MB | 25 grocery categories for image classification | [Freiburg Groceries Dataset (GitHub)](https://github.com/PhilJd/freiburg_groceries_dataset) |
-| **SKU-110K** | ~13 GB | Dense shelf object detection dataset | [SKU110K Dataset](https://github.com/eg4000/SKU110K_CVPR19) |
 
 ---
 

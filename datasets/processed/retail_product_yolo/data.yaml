@@ -1,4 +1,4 @@
-path: /Volumes/Personal Drive/Development and Projects/Projects/Demand_Forecasting_Retail_AI/SelfStack/datasets/processed/retail_product_yolo
+path: datasets/processed/retail_product_yolo
 train: images/train
 val: images/val
 

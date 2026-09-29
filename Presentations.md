@@ -275,7 +275,7 @@ Evaluated against a 60-day validation set containing 11,418 sales records:
 ---
 
 # SLIDE 21: Vision Classifier Performance
-Tested on validation splits from the Freiburg Grocery dataset:
+Tested on validation splits from the retail product vision dataset:
 
 * **Training Examples**: 4,206 images
 * **Validation Examples**: 741 images

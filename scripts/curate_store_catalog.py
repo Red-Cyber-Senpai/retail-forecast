@@ -4,7 +4,7 @@ from backend.database.session import SessionLocal
 from backend.models.product import Product
 from backend.models.inventory import Inventory
 
-# Keyword -> Freiburg category. Order matters: more specific keywords first
+# Keyword -> Retail product category. Order matters: more specific keywords first
 # where there's overlap (e.g. "tomato sauce" before generic "tomato").
 CATEGORY_KEYWORDS = {
     "RICE": ["rice"],

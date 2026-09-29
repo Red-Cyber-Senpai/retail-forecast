@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
 from torchvision import datasets, models, transforms
 
 # ---- Config ----
-DATA_DIR = "datasets/raw/grocery_images/freiburg/images"
+DATA_DIR = os.environ.get("VISION_DATA_DIR", "")
 OUTPUT_MODEL_PATH = "models/vision/product_classifier.pt"
 OUTPUT_CLASSES_PATH = "models/vision/class_names.json"
 OUTPUT_METRICS_PATH = "models/vision/classifier_metrics.json"
@@ -283,6 +283,22 @@ def train_stage(
 
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(OUTPUT_MODEL_PATH), exist_ok=True)
+
+    if not os.path.exists(DATA_DIR):
+        if os.path.exists(OUTPUT_MODEL_PATH) and os.path.exists(OUTPUT_CLASSES_PATH):
+            print(
+                f"[INFO] Raw image training directory '{DATA_DIR}' not found.\n"
+                f"[INFO] Serialized classifier artifacts are already available:\n"
+                f"       - Model: {OUTPUT_MODEL_PATH}\n"
+                f"       - Classes: {OUTPUT_CLASSES_PATH}\n"
+                f"       - Metrics: {OUTPUT_METRICS_PATH}\n"
+                f"[INFO] The application will use the pre-trained weights directly."
+            )
+            exit(0)
+        raise FileNotFoundError(
+            f"Image dataset directory not found: '{DATA_DIR}'. "
+            "Please specify a valid dataset directory via the VISION_DATA_DIR environment variable."
+        )
 
     # Load dataset once for labels / split
     full_dataset = datasets.ImageFolder(DATA_DIR)

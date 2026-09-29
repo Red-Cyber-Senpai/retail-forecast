@@ -17,8 +17,10 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, models, transforms
 
+import os
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT_DIR / "datasets" / "raw" / "grocery_images" / "freiburg" / "images"
+DATA_DIR = Path(os.environ["VISION_DATA_DIR"]) if "VISION_DATA_DIR" in os.environ else None
 MODEL_DIR = ROOT_DIR / "models" / "vision"
 MODEL_PATH = MODEL_DIR / "product_classifier.pt"
 CLASS_NAMES_PATH = MODEL_DIR / "class_names.json"
@@ -260,6 +262,21 @@ def save_artifacts(
 def main():
     set_seed(SEED)
     ensure_output_dir()
+
+    if DATA_DIR is None or not DATA_DIR.exists():
+        if MODEL_PATH.exists() and CLASS_NAMES_PATH.exists():
+            print(
+                f"[INFO] Raw image training directory is not configured.\n"
+                f"[INFO] Pre-trained classifier weights and class names are available:\n"
+                f"       - Model: {MODEL_PATH}\n"
+                f"       - Classes: {CLASS_NAMES_PATH}\n"
+                f"[INFO] The application is ready to use pre-trained weights without re-training."
+            )
+            return
+        raise FileNotFoundError(
+            "Image training directory not configured. "
+            "Please specify a valid image folder via VISION_DATA_DIR."
+        )
 
     base_dataset, train_subset, val_subset = build_datasets()
     class_names = list(base_dataset.classes)
